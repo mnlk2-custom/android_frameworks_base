@@ -1760,6 +1760,12 @@ public final class Settings {
          */
         public static final String TRACKBALL_WAKE_SCREEN = "trackball_wake_screen";
         
+        /** @hide */
+        public static final String ELECTRON_BEAM_ANIMATION_ON = "electron_beam_animation_on";
+
+        /** @hide */
+        public static final String ELECTRON_BEAM_ANIMATION_OFF = "electron_beam_animation_off";
+        
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
          * keys and easy to update.
