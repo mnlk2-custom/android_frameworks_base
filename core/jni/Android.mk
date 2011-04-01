@@ -142,6 +142,12 @@ LOCAL_SRC_FILES:= \
 	android_content_res_ObbScanner.cpp \
     android_content_res_Configuration.cpp
 
+ifeq ($(BOARD_HAVE_FM_RADIO),true)
+ifeq ($(BOARD_WLAN_DEVICE),bcm4329)
+	LOCAL_SRC_FILES += android_hardware_fm_bcm4325.cpp
+endif
+endif
+
 LOCAL_C_INCLUDES += \
 	$(JNI_H_INCLUDE) \
 	$(LOCAL_PATH)/android/graphics \

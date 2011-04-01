@@ -126,10 +126,13 @@ static bool settingsAllowed() {
 }
 
 // ----------------------------------------------------------------------------
-
 AudioFlinger::AudioFlinger()
     : BnAudioFlinger(),
+#ifdef HAVE_FM_RADIO
+        mAudioHardware(0), mMasterVolume(1.0f), mMasterMute(false), mNextUniqueId(1),  mFmOn(false)
+#else
         mAudioHardware(0), mMasterVolume(1.0f), mMasterMute(false), mNextUniqueId(1)
+#endif
 {
     mHardwareStatus = AUDIO_HW_IDLE;
 
@@ -624,6 +627,11 @@ bool AudioFlinger::isStreamActive(int stream) const
             return true;
         }
     }
+#ifdef HAVE_FM_RADIO
+    if (mFmOn && stream == AudioSystem::MUSIC) {
+        return true;
+    }
+#endif
     return false;
 }
 
@@ -631,7 +639,7 @@ status_t AudioFlinger::setParameters(int ioHandle, const String8& keyValuePairs)
 {
     status_t result;
 
-    LOGV("setParameters(): io %d, keyvalue %s, tid %d, calling tid %d",
+    LOGD("setParameters(): io %d, keyvalue %s, tid %d, calling tid %d",
             ioHandle, keyValuePairs.string(), gettid(), IPCThreadState::self()->getCallingPid());
     // check calling permissions
     if (!settingsAllowed()) {
@@ -660,7 +668,30 @@ status_t AudioFlinger::setParameters(int ioHandle, const String8& keyValuePairs)
         }
     }
 #endif
+#ifdef HAVE_FM_RADIO
+    AudioParameter param = AudioParameter(keyValuePairs);
+    String8 key = String8(AudioParameter::keyRouting);
+    int device;
+    if (param.getInt(key, device) == NO_ERROR) {
+        if((device & AudioSystem::DEVICE_OUT_FM) && mFmOn == false){
+            mFmOn = true;
+         } else if (mFmOn == true && !(device & AudioSystem::DEVICE_OUT_FM)){
+            mFmOn = false;
+         }
+    }
 
+    String8 fmOnKey = String8(AudioParameter::keyFmOn);
+    String8 fmOffKey = String8(AudioParameter::keyFmOff);
+    if (param.getInt(fmOnKey, device) == NO_ERROR) {
+        mFmOn = true;
+        // Call hardware to switch FM on/off
+        mAudioHardware->setParameters(keyValuePairs);
+    } else if (param.getInt(fmOffKey, device) == NO_ERROR) {
+        mFmOn = false;
+        // Call hardware to switch FM on/off
+        mAudioHardware->setParameters(keyValuePairs);
+    }
+#endif
     // ioHandle == 0 means the parameters are global to the audio hardware interface
     if (ioHandle == 0) {
         AutoMutex lock(mHardwareLock);
@@ -767,6 +798,23 @@ status_t AudioFlinger::getRenderPosition(uint32_t *halFrames, uint32_t *dspFrame
 
     return BAD_VALUE;
 }
+
+#ifdef HAVE_FM_RADIO
+status_t AudioFlinger::setFmVolume(float value)
+{
+    // check calling permissions
+    if (!settingsAllowed()) {
+        return PERMISSION_DENIED;
+    }
+
+    AutoMutex lock(mHardwareLock);
+    mHardwareStatus = AUDIO_SET_FM_VOLUME;
+    status_t ret = mAudioHardware->setFmVolume(value);
+    mHardwareStatus = AUDIO_HW_IDLE;
+
+    return ret;
+}
+#endif
 
 void AudioFlinger::registerClient(const sp<IAudioFlingerClient>& client)
 {
@@ -5433,21 +5481,19 @@ void AudioFlinger::EffectModule::process()
 
         // clear auxiliary effect input buffer for next accumulation
         if ((mDescriptor.flags & EFFECT_FLAG_TYPE_MASK) == EFFECT_FLAG_TYPE_AUXILIARY) {
-            memset(mConfig.inputCfg.buffer.raw, 0,
-                   mConfig.inputCfg.buffer.frameCount*sizeof(int32_t));
+            memset(mConfig.inputCfg.buffer.raw, 0, mConfig.inputCfg.buffer.frameCount*sizeof(int32_t));
         }
     } else if ((mDescriptor.flags & EFFECT_FLAG_TYPE_MASK) == EFFECT_FLAG_TYPE_INSERT &&
-                mConfig.inputCfg.buffer.raw != mConfig.outputCfg.buffer.raw) {
-        // If an insert effect is idle and input buffer is different from output buffer,
-        // accumulate input onto output
+                mConfig.inputCfg.buffer.raw != mConfig.outputCfg.buffer.raw){
+        // If an insert effect is idle and input buffer is different from output buffer, copy input to
+        // output
         sp<EffectChain> chain = mChain.promote();
         if (chain != 0 && chain->activeTracks() != 0) {
-            size_t frameCnt = mConfig.inputCfg.buffer.frameCount * 2;  //always stereo here
-            int16_t *in = mConfig.inputCfg.buffer.s16;
-            int16_t *out = mConfig.outputCfg.buffer.s16;
-            for (size_t i = 0; i < frameCnt; i++) {
-                out[i] = clamp16((int32_t)out[i] + (int32_t)in[i]);
+            size_t size = mConfig.inputCfg.buffer.frameCount * sizeof(int16_t);
+            if (mConfig.inputCfg.channels == CHANNEL_STEREO) {
+                size *= 2;
             }
+            memcpy(mConfig.outputCfg.buffer.raw, mConfig.inputCfg.buffer.raw, size);
         }
     }
 }
@@ -5810,8 +5856,7 @@ uint32_t AudioFlinger::EffectModule::deviceAudioSystemToEffectApi(uint32_t devic
 const uint32_t AudioFlinger::EffectModule::sModeConvTable[] = {
     AUDIO_MODE_NORMAL,   // AudioSystem::MODE_NORMAL
     AUDIO_MODE_RINGTONE, // AudioSystem::MODE_RINGTONE
-    AUDIO_MODE_IN_CALL,  // AudioSystem::MODE_IN_CALL
-    AUDIO_MODE_IN_CALL   // AudioSystem::MODE_IN_COMMUNICATION, same conversion as for MODE_IN_CALL
+    AUDIO_MODE_IN_CALL   // AudioSystem::MODE_IN_CALL
 };
 
 int AudioFlinger::EffectModule::modeAudioSystemToEffectApi(uint32_t mode)
@@ -6466,3 +6511,4 @@ status_t AudioFlinger::onTransact(
 }
 
 }; // namespace android
+

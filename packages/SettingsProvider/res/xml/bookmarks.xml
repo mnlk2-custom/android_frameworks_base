@@ -31,24 +31,26 @@
         package="com.google.android.gm"
         class="com.google.android.gm.ConversationListActivityGmail"
         shortcut="g" />
-    <bookmark
+<!--    <bookmark
         package="com.android.im"
         class="com.android.im.app.LandingPage"
         shortcut="i" />
+-->
     <bookmark
         package="com.android.calendar"
         class="com.android.calendar.LaunchActivity"
         shortcut="l" />
-<!--
-    <bookmark
+
+<!--<bookmark
         package="com.google.android.apps.maps"
         class="com.google.android.maps.MapsActivity"
         shortcut="m" />
--->
+
     <bookmark
         package="com.android.music"
         class="com.android.music.MusicBrowserActivity"
         shortcut="p" />
+-->
     <bookmark
         package="com.android.mms"
         class="com.android.mms.ui.ConversationList"
