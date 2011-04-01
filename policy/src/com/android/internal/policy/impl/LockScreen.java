@@ -56,7 +56,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     private static final String ENABLE_MENU_KEY_FILE = "/data/local/enable_menu_key";
 
     private Status mStatus = Status.Normal;
-
+    private TextView mNowPlaying;
     private LockPatternUtils mLockPatternUtils;
     private KeyguardUpdateMonitor mUpdateMonitor;
     private KeyguardScreenCallback mCallback;
@@ -228,7 +228,10 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         mPlayIcon = (ImageButton) findViewById(R.id.musicControlPlay);
         mPauseIcon = (ImageButton) findViewById(R.id.musicControlPause);
         mRewindIcon = (ImageButton) findViewById(R.id.musicControlPrevious);
-        mForwardIcon = (ImageButton) findViewById(R.id.musicControlNext);
+        mForwardIcon = (ImageButton) findViewById(R.id.musicControlNext);   
+        mNowPlaying = (TextView) findViewById(R.id.musicNowPlaying);
+        mNowPlaying.setSelected(true); // set focus to TextView to allow scrolling
+        mNowPlaying.setTextColor(0xffffffff); 
         mScreenLocked = (TextView) findViewById(R.id.screenLocked);
         mSelector = (SlidingTab) findViewById(R.id.tab_selector);
         mSelector.setHoldAfterTrigger(true, false);
@@ -342,7 +345,8 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         refreshBatteryStringAndIcon();
         refreshAlarmDisplay();
         refreshMusicStatus();
-
+        refreshPlayingTitle();
+        
         mTimeFormat = DateFormat.getTimeFormat(getContext());
         mDateFormatString = getContext().getString(R.string.full_wday_month_day_no_year);
         refreshTimeAndDateDisplay();
@@ -518,6 +522,16 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         }
     }
 
+    private void refreshPlayingTitle() {
+        if (am.isMusicActive()) {
+            mNowPlaying.setText(KeyguardViewMediator.NowPlaying());
+            mNowPlaying.setVisibility(View.VISIBLE);
+        } else {
+            mNowPlaying.setVisibility(View.GONE);
+            mNowPlaying.setText("");
+        }
+    }
+    
     private void sendMediaButtonEvent(int code) {
         long eventtime = SystemClock.uptimeMillis();
 
@@ -541,6 +555,11 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         mDate.setText(DateFormat.format(mDateFormatString, new Date()));
     }
 
+    /** {@inheritDoc} */
+    public void onMusicChanged() {
+        refreshPlayingTitle();
+    }
+    
     private void updateStatusLines() {
         if (!mStatus.showStatusLines()
                 || (mCharging == null && mNextAlarm == null)) {
