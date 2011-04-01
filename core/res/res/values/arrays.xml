@@ -96,20 +96,10 @@
         <item>#ffffffff</item>
     </array>
 
-    <!-- Do not translate. -->
-    <integer-array name="maps_starting_lat_lng">
-        <item>36149777</item>
-        <item>-95993398</item>
-    </integer-array>
-    <!-- Do not translate. -->
-    <integer-array name="maps_starting_zoom">
-        <item>3</item>
-    </integer-array>
-    
-       <!-- Defines the shutdown options shown in the reboot dialog. -->
+    <!-- Defines the shutdown options shown in the reboot dialog. -->
     <array name="shutdown_reboot_options">
         <item>Reboot</item>
-        <item>Recovery</item>
+       <item>Recovery</item>
         <item>Bootloader</item>
     </array>
 
@@ -120,6 +110,16 @@
         <item>recovery</item>
         <item>bootloader</item>
     </string-array>
-
+ 
+ 
+    <!-- Do not translate. -->
+    <integer-array name="maps_starting_lat_lng">
+        <item>36149777</item>
+        <item>-95993398</item>
+    </integer-array>
+    <!-- Do not translate. -->
+    <integer-array name="maps_starting_zoom">
+        <item>3</item>
+    </integer-array>
 
 </resources>

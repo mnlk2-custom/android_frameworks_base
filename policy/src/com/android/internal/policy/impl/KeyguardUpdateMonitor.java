@@ -166,7 +166,7 @@ public class KeyguardUpdateMonitor {
                         break;
                     case MSG_MUSIC_SONG_CHANGE:
                         handleSongUpdate();
-                        break;                        
+                        break;
                 }
             }
         };
@@ -222,7 +222,7 @@ public class KeyguardUpdateMonitor {
         filter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
         filter.addAction(SPN_STRINGS_UPDATED_ACTION);
         filter.addAction(AudioManager.RINGER_MODE_CHANGED_ACTION);
-        filter.addAction("internal.policy.impl.updateSongStatus");
+        filter.addAction("internal.policy.impl.updateSongStatus");        
         context.registerReceiver(new BroadcastReceiver() {
 
             public void onReceive(Context context, Intent intent) {
@@ -343,7 +343,6 @@ public class KeyguardUpdateMonitor {
         }
     }
     
-   
     /**
      * @param status One of the statuses of {@link android.os.BatteryManager}
      * @return Whether the status maps to a status for being plugged in.
@@ -436,7 +435,7 @@ public class KeyguardUpdateMonitor {
         void onRefreshBatteryInfo(boolean showBatteryInfo, boolean pluggedIn, int batteryLevel);
         void onTimeChanged();
         void onMusicChanged();
-
+        
         /**
          * @param plmn The operator name of the registered network.  May be null if it shouldn't
          *   be displayed.

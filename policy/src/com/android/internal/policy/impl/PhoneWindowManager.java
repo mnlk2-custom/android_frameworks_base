@@ -16,11 +16,12 @@
 
 package com.android.internal.policy.impl;
 
+import com.android.internal.R;
 
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.ActivityManagerNative;
 import android.app.ActivityManager.RunningAppProcessInfo;
+import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
 import android.app.IUiModeManager;
 import android.app.UiModeManager;
@@ -120,7 +121,6 @@ import android.media.AudioManager;
 
 import java.util.ArrayList;
 import java.util.List;
-
 /**
  * WindowManagerPolicy implementation for the Android phone UI.  This
  * introduces a new method suffix, Lp, for an internal lock of the
@@ -294,10 +294,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     
     // Behavior of trackball wake
     boolean mTrackballWakeScreen;
-    
-    Long mTrackballHitTime;
+
     static final long NEXT_DURATION = 400;
-    
+   
     // Behavior of POWER button while in-call and screen on.
     // (See Settings.Secure.INCALL_POWER_BUTTON_BEHAVIOR.)
     int mIncallPowerBehavior;
@@ -335,7 +334,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             resolver.registerContentObserver(Settings.System.getUriFor(
                     "fancy_rotation_anim"), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.TRACKBALL_WAKE_SCREEN), false, this);             
+                    Settings.System.TRACKBALL_WAKE_SCREEN), false, this);            
             updateSettings();
         }
 
@@ -542,7 +541,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                 return;
             }
             try {
-                performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);              
+                performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);            	
                 IActivityManager mgr = ActivityManagerNative.getDefault();
                 List<RunningAppProcessInfo> apps = mgr.getRunningAppProcesses();
                 for (RunningAppProcessInfo appInfo : apps) {
@@ -551,17 +550,17 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     if (uid >= Process.FIRST_APPLICATION_UID && uid <= Process.LAST_APPLICATION_UID
                         && appInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
                         // Kill the entire pid
-                        Toast.makeText(mContext, R.string.app_killed_message, Toast.LENGTH_SHORT).show();                      
+                        Toast.makeText(mContext, R.string.app_killed_message, Toast.LENGTH_SHORT).show();                    	
                         Process.killProcess(appInfo.pid);
-                       break;
+                        break;
                     }
                 }
-              } catch (RemoteException remoteException) {
+            } catch (RemoteException remoteException) {
                 // Do nothing; just let it go.
             }
         }
     };
-    	
+    
     /**
      * Create (if necessary) and launch the recent apps dialog
      */
@@ -656,7 +655,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mFancyRotationAnimation = Settings.System.getInt(resolver,
                     "fancy_rotation_anim", 0) != 0 ? 0x80 : 0;
             mTrackballWakeScreen = (Settings.System.getInt(resolver,
-                    Settings.System.TRACKBALL_WAKE_SCREEN, 1) == 1);            
+                    Settings.System.TRACKBALL_WAKE_SCREEN, 0) == 1);            
             int accelerometerDefault = Settings.System.getInt(resolver,
                     Settings.System.ACCELEROMETER_ROTATION, DEFAULT_ACCELEROMETER_ROTATION);
             if (mAccelerometerDefault != accelerometerDefault) {
@@ -1232,7 +1231,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             if (down && repeatCount == 0) {
                 mHandler.postDelayed(mBackLongPress, ViewConfiguration.getGlobalActionKeyTimeout());
             }
-            return false;            
+            return false;
         } else if (keyCode == KeyEvent.KEYCODE_MENU) {
             // Hijack modified menu keys for debugging features
             final int chordBug = KeyEvent.META_SHIFT_ON;
@@ -1806,7 +1805,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         if (false) {
             Log.d(TAG, "interceptKeyTq keycode=" + keyCode
-                  + " screenIsOn=" + isScreenOn + " keyguardActive=" + keyguardActive);
+                    + " screenIsOn=" + isScreenOn + " keyguardActive=" + keyguardActive);
         }
 
         if (down && (policyFlags & WindowManagerPolicy.FLAG_VIRTUAL) != 0) {
@@ -1829,10 +1828,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             // When the screen is off and the key is not injected, determine whether
             // to wake the device but don't pass the key to the application.
             result = 0;
-
+            
             final boolean isWakeKey = (policyFlags
-            		& (WindowManagerPolicy.FLAG_WAKE | WindowManagerPolicy.FLAG_WAKE_DROPPED)) != 0
+                    & (WindowManagerPolicy.FLAG_WAKE | WindowManagerPolicy.FLAG_WAKE_DROPPED)) != 0
                     || ((keyCode == BTN_MOUSE) && mTrackballWakeScreen);
+
             if (down && isWakeKey) {
                 if (keyguardActive) {
                     // If the keyguard is showing, let it decide what to do with the wake key.

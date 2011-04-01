@@ -20,7 +20,7 @@ int install(const char *pkgname, int encrypted_fs_flag, uid_t uid, gid_t gid)
 {
     char pkgdir[PKG_PATH_MAX];
     char libdir[PKG_PATH_MAX];
-
+    
     LOGI("installer: dir: %s pkg: %s", pkgdir, pkgname);
     if ((uid < AID_SYSTEM) || (gid < AID_SYSTEM)) {
         LOGE("invalid uid/gid: %d %d\n", uid, gid);
@@ -643,7 +643,7 @@ int zipalign(const char *apk_path, uid_t uid, int is_public)
         if (res == 0) {
             goto notneeded;
         }
-    }
+    }    
     
     memset(&apk_stat, 0, sizeof(apk_stat));
     stat(apk_path, &apk_stat);
@@ -708,10 +708,10 @@ int dexopt(const char *apk_path, uid_t uid, int is_public)
         return -1;
     }
 
-   if (strncmp(apk_path, "/system", 7) != 0) {
+    if (strncmp(apk_path, "/system", 7) != 0) {
         zipalign(apk_path, uid, is_public);
     }
-    
+
     /* platform-specific flags affecting optimization and verification */
     property_get("dalvik.vm.dexopt-flags", dexopt_flags, "");
 

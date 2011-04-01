@@ -20,6 +20,7 @@ import com.android.internal.R;
 import com.android.internal.telephony.IccCard;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.SlidingTab;
+import com.android.internal.widget.SlidingTab.OnTriggerListener;
 
 import android.content.Context;
 import android.content.Intent;
@@ -63,6 +64,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
 
     private TextView mCarrier;
     private SlidingTab mSelector;
+    private SlidingTab mSelector2;    
     private TextView mTime;
     private TextView mDate;
     private TextView mStatus1;
@@ -74,6 +76,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     private ImageButton mPauseIcon;
     private ImageButton mRewindIcon;
     private ImageButton mForwardIcon;
+
     private AudioManager am = (AudioManager)getContext().getSystemService(Context.AUDIO_SERVICE);
     private boolean mWasMusicActive = am.isMusicActive();
     private boolean mIsMusicActive = false;
@@ -96,6 +99,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
     private String mCharging = null;
     private Drawable mChargingIcon = null;
 
+    
     private boolean mSilentMode;
     private AudioManager mAudioManager;
     private String mDateFormatString;
@@ -106,14 +110,17 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
             Settings.System.TRACKBALL_UNLOCK_SCREEN, 0) == 1);
 
     private boolean mMenuUnlockScreen = (Settings.System.getInt(mContext.getContentResolver(),
-            Settings.System.MENU_UNLOCK_SCREEN, 0) == 1);  
-    
+            Settings.System.MENU_UNLOCK_SCREEN, 0) == 1);
+
     private boolean mLockMusicControls = (Settings.System.getInt(mContext.getContentResolver(),
             Settings.System.LOCKSCREEN_MUSIC_CONTROLS, 1) == 1);
 
     private boolean mLockAlwaysMusic = (Settings.System.getInt(mContext.getContentResolver(),
             Settings.System.LOCKSCREEN_ALWAYS_MUSIC_CONTROLS, 0) == 1);
-   
+    
+    private boolean mLockPhoneMessagingTab = (Settings.System.getInt(mContext.getContentResolver(),
+            Settings.System.LOCKSCREEN_PHONE_MESSAGING_TAB, 0) == 1);
+    
     /**
      * The status of this lock screen.
      */
@@ -231,12 +238,18 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         mForwardIcon = (ImageButton) findViewById(R.id.musicControlNext);   
         mNowPlaying = (TextView) findViewById(R.id.musicNowPlaying);
         mNowPlaying.setSelected(true); // set focus to TextView to allow scrolling
-        mNowPlaying.setTextColor(0xffffffff); 
+        mNowPlaying.setTextColor(0xffffffff);        
         mScreenLocked = (TextView) findViewById(R.id.screenLocked);
         mSelector = (SlidingTab) findViewById(R.id.tab_selector);
         mSelector.setHoldAfterTrigger(true, false);
         mSelector.setLeftHintText(R.string.lockscreen_unlock_label);
-
+        mSelector2 = (SlidingTab) findViewById(R.id.tab_selector2);
+        if (mSelector2 != null) {
+            mSelector2.setHoldAfterTrigger(true, false);
+            mSelector2.setLeftHintText(R.string.lockscreen_phone_label);
+            mSelector2.setRightHintText(R.string.lockscreen_messaging_label);
+        }
+        
         mEmergencyCallText = (TextView) findViewById(R.id.emergencyCallText);
         mEmergencyCallButton = (Button) findViewById(R.id.emergencyCallButton);
         mEmergencyCallButton.setText(R.string.lockscreen_emergency_call);
@@ -309,6 +322,38 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         updateRightTabResources();
 
         mSelector.setOnTriggerListener(this);
+        
+        if (mSelector2 != null) {
+            mSelector2.setLeftTabResources(R.drawable.ic_jog_dial_answer,
+                    R.drawable.jog_tab_target_green, R.drawable.jog_tab_bar_left_generic,
+                    R.drawable.jog_tab_left_generic);
+
+            mSelector2.setRightTabResources(R.drawable.ic_jog_dial_messaging,
+                    R.drawable.jog_tab_target_green, R.drawable.jog_tab_bar_right_generic,
+                    R.drawable.jog_tab_right_generic);
+
+            mSelector2.setOnTriggerListener(new OnTriggerListener() {
+                public void onTrigger(View v, int whichHandle) {
+                    if (whichHandle == SlidingTab.OnTriggerListener.LEFT_HANDLE) {
+                        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                        callIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        getContext().startActivity(callIntent);
+                        mCallback.goToUnlockScreen();
+                    } else if (whichHandle == SlidingTab.OnTriggerListener.RIGHT_HANDLE) {
+                        Intent sendIntent = new Intent(Intent.ACTION_MAIN);
+                        sendIntent.setType("vnd.android-dir/mms-sms");
+                        sendIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        getContext().startActivity(sendIntent);
+                        mCallback.goToUnlockScreen();
+                    }
+                }
+
+                @Override
+                public void onGrabbedStateChange(View v, int grabbedState) {
+                    mCallback.pokeWakelock();
+                }
+            });
+        }        
 
         resetStatusInfo(updateMonitor);
     }
@@ -545,7 +590,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
         upIntent.putExtra(Intent.EXTRA_KEY_EVENT, upEvent);
         getContext().sendOrderedBroadcast(upIntent, null);
     }
-    
+
     /** {@inheritDoc} */
     public void onTimeChanged() {
         refreshTimeAndDateDisplay();
@@ -649,6 +694,11 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.VISIBLE);
                 mSelector.setVisibility(View.VISIBLE);
+                if (mLockPhoneMessagingTab) {
+                    mSelector2.setVisibility(View.VISIBLE);
+                } else {
+                    mSelector2.setVisibility(View.GONE);
+                }                
                 mEmergencyCallText.setVisibility(View.GONE);
                 break;
             case NetworkLocked:
@@ -663,6 +713,11 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.VISIBLE);
                 mSelector.setVisibility(View.VISIBLE);
+                if (mLockPhoneMessagingTab) {
+                   mSelector2.setVisibility(View.VISIBLE);
+                } else {
+                    mSelector2.setVisibility(View.GONE);
+                }  
                 mEmergencyCallText.setVisibility(View.GONE);
                 break;
             case SimMissing:
@@ -673,6 +728,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.VISIBLE);
                 mSelector.setVisibility(View.VISIBLE);
+                mSelector2.setVisibility(View.GONE);               
                 mEmergencyCallText.setVisibility(View.VISIBLE);
                 // do not need to show the e-call button; user may unlock
                 break;
@@ -687,6 +743,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.VISIBLE);
                 mSelector.setVisibility(View.GONE); // cannot unlock
+                mSelector2.setVisibility(View.GONE);                
                 mEmergencyCallText.setVisibility(View.VISIBLE);
                 mEmergencyCallButton.setVisibility(View.VISIBLE);
                 break;
@@ -700,6 +757,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.INVISIBLE);
                 mSelector.setVisibility(View.VISIBLE);
+                mSelector2.setVisibility(View.GONE);                
                 mEmergencyCallText.setVisibility(View.GONE);
                 break;
             case SimPukLocked:
@@ -713,6 +771,7 @@ class LockScreen extends LinearLayout implements KeyguardScreen, KeyguardUpdateM
                 // layout
                 mScreenLocked.setVisibility(View.VISIBLE);
                 mSelector.setVisibility(View.GONE); // cannot unlock
+                mSelector2.setVisibility(View.GONE);                
                 mEmergencyCallText.setVisibility(View.VISIBLE);
                 mEmergencyCallButton.setVisibility(View.VISIBLE);
                 break;

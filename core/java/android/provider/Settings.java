@@ -1,4 +1,5 @@
 /*
+
  * Copyright (C) 2006 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,7 +59,16 @@ import java.util.Map;
  */
 public final class Settings {
 
-    // Intent actions for Settings
+    /**
+     * Intent actions for Settings
+     *
+     * @hide
+     */
+    public static final String SETTINGS_CHANGED = "android.settings.SETTINGS_CHANGED_ACTION";
+
+    public Settings() {
+        /* Empty for API conflicts */
+    }
 
     /**
      * Activity Action: Show system settings.
@@ -735,7 +745,8 @@ public final class Settings {
             MOVED_TO_SECURE.add(Secure.WIFI_WATCHDOG_PING_DELAY_MS);
             MOVED_TO_SECURE.add(Secure.WIFI_WATCHDOG_PING_TIMEOUT_MS);
         }
-
+        
+       
         /**
          * Look up a name in the database.
          * @param resolver to access the database with
@@ -1741,15 +1752,15 @@ public final class Settings {
          * @hide
          */
         public static final String SIP_ASK_ME_EACH_TIME = "SIP_ASK_ME_EACH_TIME";
-
+        
         /**
-         * Whether to unlock the screen with the trackball. The value is boolean (1 or 0).
+         * Whether to unlock the screen with the trackball.  The value is boolean (1 or 0).
          * @hide
          */
         public static final String TRACKBALL_UNLOCK_SCREEN = "trackball_unlock_screen";
 
         /**
-         * Whether to unlock the menu key. The value is boolean (1 or 0).
+         * Whether to unlock the menu key.  The value is boolean (1 or 0).
          * @hide
          */
         public static final String MENU_UNLOCK_SCREEN = "menu_unlock_screen";
@@ -1765,7 +1776,7 @@ public final class Settings {
 
         /** @hide */
         public static final String ELECTRON_BEAM_ANIMATION_OFF = "electron_beam_animation_off";
-        
+
         /**
          * Whether to use custom notification bar
          * @hide
@@ -1777,6 +1788,57 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_ALWAYS_MUSIC_CONTROLS = "lockscreen_always_music_controls";
+        
+        /**
+         * Use the Notification Power Widget? (Who wouldn't!)
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET = "expanded_view_widget";
+
+        /**
+         * Whether to hide the notification screen after clicking on a widget
+         * button
+         *
+         * @hide
+         */
+        public static final String EXPANDED_HIDE_ONCHANGE = "expanded_hide_onchange";
+
+        /**
+         * Notification Indicator Color
+         *
+         * @hide
+         */
+        public static final String EXPANDED_VIEW_WIDGET_COLOR = "expanded_widget_color";
+
+        /**
+         * Widget Buttons to Use
+         *
+         * @hide
+         */
+        public static final String WIDGET_BUTTONS = "expanded_widget_buttons";
+
+        /** @hide */
+        public static final String EXPANDED_BRIGHTNESS_MODE = "expanded_brightness_mode";
+
+        /** @hide */
+        public static final String EXPANDED_NETWORK_MODE = "expanded_network_mode";
+
+        /** @hide */
+        public static final String EXPANDED_SCREENTIMEOUT_MODE = "expanded_screentimeout_mode";
+
+        /** @hide */
+        public static final String EXPANDED_RING_MODE = "expanded_ring_mode";
+
+        /** @hide */
+        public static final String EXPANDED_FLASH_MODE = "expanded_flash_mode";
+
+        /**
+         * Whether to use the custom Phone and Messaging SlidingTab
+         * @hide
+         */
+        public static final String LOCKSCREEN_PHONE_MESSAGING_TAB = "lockscreen_phone_messaging_tab";
+      
         
         /**
          * Settings to backup. This is here so that it's in the same place as the settings
@@ -2260,6 +2322,13 @@ public final class Settings {
         }
 
         /**
+         * Whether to allow killing of the foreground process by long-pressing
+         * the device's BACK button.
+         * @hide
+         */
+        public static final String KILL_APP_LONGPRESS_BACK = "kill_app_on_longpress_back";
+        
+        /**
          * Convenience function for retrieving a single secure settings value
          * as a floating point number.  Note that internally setting values are
          * always stored as strings; this function converts the string to an
@@ -2282,13 +2351,6 @@ public final class Settings {
             }
         }
 
-        /**
-         * Whether to allow killing of the foreground process by long-pressing
-         * the device's BACK button.
-         * @hide
-         */
-        public static final String KILL_APP_LONGPRESS_BACK = "kill_app_on_longpress_back";
-        
         /**
          * Convenience function for retrieving a single secure settings value
          * as a float.  Note that internally setting values are always
@@ -2350,7 +2412,7 @@ public final class Settings {
          * @hide
          */
         public static final String ADB_NOTIFY = "adb_notify";
-        
+
         /**
          * Setting to allow mock locations and location provider status to be injected into the
          * LocationManager service for testing purposes during application development.  These

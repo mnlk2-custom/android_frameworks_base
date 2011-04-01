@@ -247,7 +247,7 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
 
     private static String mArtist = null;
     private static String mTrack = null;
-    private static Boolean mPlaying = null;    
+    private static Boolean mPlaying = null;
     
     public KeyguardViewMediator(Context context, PhoneWindowManager callback,
             LocalPowerManager powerManager) {
@@ -273,6 +273,7 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
         context.registerReceiver(mBroadCastReceiver, filter);
         mAlarmManager = (AlarmManager) context
                 .getSystemService(Context.ALARM_SERVICE);
+        
         mCallback = callback;
 
         mUpdateMonitor = new KeyguardUpdateMonitor(context);
@@ -299,7 +300,6 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
         mShowLockIcon = (Settings.System.getInt(cr, "show_status_bar_lock", 0) == 1);
     }
 
-    
     /**
      * Let us know that the system is ready after startup.
      */
@@ -981,6 +981,7 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
      * Handle message sent by {@link #showLocked}.
      * @see #SHOW
      */
+    
     private void handleShow() {
         synchronized (KeyguardViewMediator.this) {
             if (DEBUG) Log.d(TAG, "handleShow");
@@ -1154,7 +1155,7 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
             intent = new Intent("internal.policy.impl.updateSongStatus");
             context.sendBroadcast(intent);
         }
-   };
+    };
     public static String NowPlaying() {
         if (mArtist != null && mPlaying) {
             return (mArtist + " - " + mTrack);
@@ -1162,6 +1163,7 @@ public class KeyguardViewMediator implements KeyguardViewCallback,
             return "";
         }
     }
-}
+}    
+
 
 

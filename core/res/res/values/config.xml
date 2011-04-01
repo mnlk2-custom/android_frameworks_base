@@ -37,6 +37,7 @@
        <item><xliff:g id="id">speakerphone</xliff:g></item>
        <item><xliff:g id="id">mute</xliff:g></item>
        <item><xliff:g id="id">volume</xliff:g></item>
+       <item><xliff:g id="id">headset</xliff:g></item>       
        <item><xliff:g id="id">wifi</xliff:g></item>
        <item><xliff:g id="id">cdma_eri</xliff:g></item>
        <item><xliff:g id="id">data_connection</xliff:g></item>
@@ -377,4 +378,7 @@
     <!-- Do not translate. Defines the slots is Two Digit Number for dialing normally not USSD -->
     <string-array name="config_twoDigitNumberPattern">
     </string-array>
+ 
+     <!-- Allows the light sensor to be ignored when flashlight is on -->
+    <bool name="config_flashlight_affects_lightsensor">false</bool>    
 </resources>

@@ -140,6 +140,7 @@
             android:layout_marginTop="12dip"
             android:drawablePadding="4dip"
             />
+
    <!-- music control buttons -->
     <ImageButton
         android:id="@+id/musicControlPlay"
@@ -200,29 +201,22 @@
         android:layout_alignWithParentIfMissing="true"
         android:textAppearance="?android:attr/textAppearanceSmall"
         />
-        
-     <TextView
-        android:id="@+id/musicNowPlaying"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_centerInParent="true"
-        android:lines="1"
-        android:scrollHorizontally="true"
-        android:ellipsize="marquee"
-        android:paddingTop="40dip"
-        android:gravity="bottom"
-        android:layout_alignWithParentIfMissing="true"
-        android:textAppearance="?android:attr/textAppearanceSmall"
-        />
     </RelativeLayout>
 
     <!-- right side -->
+     <com.android.internal.widget.SlidingTab
+        android:id="@+id/tab_selector2"
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        />
+    
     <com.android.internal.widget.SlidingTab
         android:id="@+id/tab_selector"
         android:orientation="vertical"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
-        android:layout_marginRight="80dip"
+        android:layout_marginRight="60dip"
         />
 
     <!-- emergency call button shown when sim is PUKd and tab_selector is

@@ -16,39 +16,43 @@
 
 package com.android.systemui.statusbar;
 
-import android.app.Service;
-import com.android.internal.statusbar.IStatusBar;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.statusbar.StatusBarIconList;
 import com.android.internal.statusbar.StatusBarNotification;
-
+import com.android.systemui.statusbar.powerwidget.PowerWidget;
+import com.android.systemui.R;
 import android.app.ActivityManagerNative;
 import android.app.Dialog;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.app.StatusBarManager;
+
 import android.content.BroadcastReceiver;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+
 import android.net.Uri;
-import android.os.IBinder;
-import android.os.RemoteException;
 import android.os.Binder;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
+import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Slog;
 import android.util.Log;
+import android.util.Slog;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -63,6 +67,7 @@ import android.view.WindowManagerImpl;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RemoteViews;
 import android.widget.ScrollView;
@@ -74,10 +79,6 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
-
-import com.android.systemui.R;
-import com.android.systemui.statusbar.policy.StatusBarPolicy;
-
 
 
 public class StatusBarService extends Service implements CommandQueue.Callbacks {
@@ -145,6 +146,9 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
     int mTrackingPosition; // the position of the top of the tracking view.
     private boolean mPanelSlightlyVisible;
 
+    // the power widget
+    PowerWidget mPowerWidget;
+    
     // ticker
     private Ticker mTicker;
     private View mTickerView;
@@ -298,6 +302,17 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mOngoingTitle.setVisibility(View.GONE);
         mLatestTitle.setVisibility(View.GONE);
 
+        mPowerWidget = (PowerWidget)expanded.findViewById(R.id.exp_power_stat);
+        mPowerWidget.setupSettingsObserver(mHandler);
+        mPowerWidget.setGlobalButtonOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        if(Settings.System.getInt(getContentResolver(),
+                                Settings.System.EXPANDED_HIDE_ONCHANGE, 0) == 1) {
+                            animateCollapse();
+                        }
+                    }
+                });
+
         mTicker = new MyTicker(context, sb);
 
         TickerView tickerView = (TickerView)sb.findViewById(R.id.tickerText);
@@ -339,6 +354,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         lp.windowAnimations = com.android.internal.R.style.Animation_StatusBar;
 
         WindowManagerImpl.getDefault().addView(view, lp);
+        
+        mPowerWidget.setupWidget();
     }
 
     public void addIcon(String slot, int index, int viewIndex, StatusBarIcon icon) {
@@ -695,6 +712,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mExpandedVisible = true;
         visibilityChanged(true);
 
+        mPowerWidget.updateWidget();
+        
         updateExpandedViewPos(EXPANDED_LEAVE_ALONE);
         mExpandedParams.flags &= ~WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         mExpandedParams.flags |= WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
@@ -834,8 +853,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mAnimY = y + (v*t) + (0.5f*a*t*t);                          // px
         mAnimVel = v + (a*t);                                       // px/s
         mAnimLastTime = now;                                        // ms
-        //Slog.d(TAG, "y=" + y + " v=" + v + " a=" + a + " t=" + t + " mAnimY=" + mAnimY
-        //        + " mAnimAccel=" + mAnimAccel);
+        Slog.d(TAG, "y=" + y + " v=" + v + " a=" + a + " t=" + t + " mAnimY=" + mAnimY
+                + " mAnimAccel=" + mAnimAccel);
     }
 
     void doRevealAnimation() {
@@ -890,7 +909,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mAnimY = y;
         mAnimVel = vel;
 
-        //Slog.d(TAG, "starting with mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel);
+        Slog.d(TAG, "starting with mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel);
 
         if (mExpanded) {
             if (!always && (
@@ -930,8 +949,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
                 }
             }
         }
-        //Slog.d(TAG, "mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel
-        //        + " mAnimAccel=" + mAnimAccel);
+        Slog.d(TAG, "mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel
+                + " mAnimAccel=" + mAnimAccel);
 
         long now = SystemClock.uptimeMillis();
         mAnimLastTime = now;
@@ -1220,7 +1239,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
                 | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                 | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 pixelFormat);
-//        lp.token = mStatusBarView.getWindowToken();
+        lp.token = mStatusBarView.getWindowToken();
         lp.gravity = Gravity.TOP | Gravity.FILL_HORIZONTAL;
         lp.setTitle("TrackingView");
         lp.y = mTrackingPosition;
@@ -1452,12 +1471,13 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
             if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action)
                     || Intent.ACTION_SCREEN_OFF.equals(action)) {
                 animateCollapse();
-            }
-            else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {
+            } else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {
                 updateResources();
+
             }
         }
     };
+    
 
     /**
      * Reload some of our resources when the configuration changes.
@@ -1509,4 +1529,5 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
             vibrate();
         }
     };
+
 }
