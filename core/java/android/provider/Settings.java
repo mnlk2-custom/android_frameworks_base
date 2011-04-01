@@ -2283,6 +2283,13 @@ public final class Settings {
         }
 
         /**
+         * Whether to allow killing of the foreground process by long-pressing
+         * the device's BACK button.
+         * @hide
+         */
+        public static final String KILL_APP_LONGPRESS_BACK = "kill_app_on_longpress_back";
+        
+        /**
          * Convenience function for retrieving a single secure settings value
          * as a float.  Note that internally setting values are always
          * stored as strings; this function converts the string to a float
