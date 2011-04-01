@@ -991,15 +991,18 @@ class PackageManagerService extends IPackageManager.Stub {
                     SystemClock.uptimeMillis());
             mAppInstallObserver = new AppDirObserver(
                 mAppInstallDir.getPath(), OBSERVER_EVENTS, false);
-            mAppInstallObserver.startWatching();
             scanDirLI(mAppInstallDir, 0, scanMode, 0);
 
+            mAppInstallObserver.startWatching();
+            
             mDrmAppInstallObserver = new AppDirObserver(
                 mDrmAppPrivateInstallDir.getPath(), OBSERVER_EVENTS, false);
-            mDrmAppInstallObserver.startWatching();
+
             scanDirLI(mDrmAppPrivateInstallDir, PackageParser.PARSE_FORWARD_LOCK,
                     scanMode, 0);
 
+            mDrmAppInstallObserver.startWatching();
+            
             EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_PMS_SCAN_END,
                     SystemClock.uptimeMillis());
             Slog.i(TAG, "Time to scan packages: "
