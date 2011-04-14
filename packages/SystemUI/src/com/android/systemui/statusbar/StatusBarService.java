@@ -16,12 +16,13 @@
 
 package com.android.systemui.statusbar;
 
+import android.app.Service;
+import com.android.internal.statusbar.IStatusBar;
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.statusbar.StatusBarIconList;
 import com.android.internal.statusbar.StatusBarNotification;
-import com.android.systemui.statusbar.powerwidget.PowerWidget;
-import com.android.systemui.R;
+
 import android.app.ActivityManagerNative;
 import android.app.Dialog;
 import android.app.Notification;
@@ -35,6 +36,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.res.CustomTheme;
 import android.content.res.Resources;
 
 import android.graphics.PixelFormat;
@@ -42,17 +44,19 @@ import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 
 import android.net.Uri;
+import android.os.IBinder;
+import android.os.RemoteException;
 import android.os.Binder;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Log;
+import android.util.Pair;
 import android.util.Slog;
+import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -80,6 +84,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
 
+import com.android.systemui.R;
+import com.android.systemui.statusbar.StatusBarPolicy;
+
+
 
 public class StatusBarService extends Service implements CommandQueue.Callbacks {
     static final String TAG = "StatusBarService";
@@ -100,12 +108,24 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
     CommandQueue mCommandQueue;
     IStatusBarService mBarService;
 
+    /**
+     * Shallow container for {@link #mStatusBarView} which is added to the
+     * window manager impl as the actual status bar root view. This is done so
+     * that the original status_bar layout can be reinflated into this container
+     * on skin change.
+     */
+    FrameLayout mStatusBarContainer;
+
     int mIconSize;
     Display mDisplay;
     StatusBarView mStatusBarView;
     int mPixelFormat;
     H mHandler = new H();
     Object mQueueLock = new Object();
+
+    // last theme that was applied in order to detect theme change (as opposed
+    // to some other configuration change).
+    CustomTheme mCurrentTheme;
 
     // icons
     LinearLayout mIcons;
@@ -199,7 +219,18 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
     public void onCreate() {
         // First set up our views and stuff.
         mDisplay = ((WindowManager)getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+        CustomTheme currentTheme = getResources().getConfiguration().customTheme;
+        if (currentTheme != null) {
+            mCurrentTheme = (CustomTheme)currentTheme.clone();
+        }
         makeStatusBarView(this);
+
+        // receive broadcasts
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
+        filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        registerReceiver(mBroadcastReceiver, filter);
 
         // Connect in to the status bar manager service
         StatusBarIconList iconList = new StatusBarIconList();
@@ -237,6 +268,9 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         }
 
         // Put up the view
+        FrameLayout container = new FrameLayout(this);
+        container.addView(mStatusBarView);
+        mStatusBarContainer = container;
         addStatusBarView();
 
         // Lastly, call to the icon policy to install/update all the icons.
@@ -341,7 +375,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         Resources res = getResources();
         final int height= res.getDimensionPixelSize(com.android.internal.R.dimen.status_bar_height);
 
-        final StatusBarView view = mStatusBarView;
+        final View view = mStatusBarContainer;
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 height,
@@ -853,8 +887,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mAnimY = y + (v*t) + (0.5f*a*t*t);                          // px
         mAnimVel = v + (a*t);                                       // px/s
         mAnimLastTime = now;                                        // ms
-        Slog.d(TAG, "y=" + y + " v=" + v + " a=" + a + " t=" + t + " mAnimY=" + mAnimY
-                + " mAnimAccel=" + mAnimAccel);
+        //Slog.d(TAG, "y=" + y + " v=" + v + " a=" + a + " t=" + t + " mAnimY=" + mAnimY
+        //        + " mAnimAccel=" + mAnimAccel);
     }
 
     void doRevealAnimation() {
@@ -909,7 +943,7 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mAnimY = y;
         mAnimVel = vel;
 
-        Slog.d(TAG, "starting with mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel);
+        //Slog.d(TAG, "starting with mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel);
 
         if (mExpanded) {
             if (!always && (
@@ -949,8 +983,8 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
                 }
             }
         }
-        Slog.d(TAG, "mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel
-                + " mAnimAccel=" + mAnimAccel);
+        //Slog.d(TAG, "mAnimY=" + mAnimY + " mAnimVel=" + mAnimVel
+        //        + " mAnimAccel=" + mAnimAccel);
 
         long now = SystemClock.uptimeMillis();
         mAnimLastTime = now;
@@ -1239,13 +1273,17 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
                 | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                 | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM,
                 pixelFormat);
-        lp.token = mStatusBarView.getWindowToken();
+//        lp.token = mStatusBarView.getWindowToken();
         lp.gravity = Gravity.TOP | Gravity.FILL_HORIZONTAL;
         lp.setTitle("TrackingView");
         lp.y = mTrackingPosition;
         mTrackingParams = lp;
 
         WindowManagerImpl.getDefault().addView(mTrackingView, lp);
+    }
+
+    void onBarViewDetached() {
+        WindowManagerImpl.getDefault().removeView(mTrackingView);
     }
 
     void onTrackingViewAttached() {
@@ -1282,6 +1320,9 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
         mExpandedDialog.getWindow().setBackgroundDrawable(null);
         mExpandedDialog.show();
         FrameLayout hack = (FrameLayout)mExpandedView.getParent();
+    }
+
+    void onTrackingViewDetached() {
     }
 
     void setDateViewVisibility(boolean visible, int anim) {
@@ -1471,13 +1512,63 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
             if (Intent.ACTION_CLOSE_SYSTEM_DIALOGS.equals(action)
                     || Intent.ACTION_SCREEN_OFF.equals(action)) {
                 animateCollapse();
-            } else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {
+            }
+            else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {
                 updateResources();
-
             }
         }
     };
-    
+
+    private static void copyNotifications(ArrayList<Pair<IBinder, StatusBarNotification>> dest,
+            NotificationData source) {
+        int N = source.size();
+        for (int i = 0; i < N; i++) {
+            NotificationData.Entry entry = source.getEntryAt(i);
+            dest.add(Pair.create(entry.key, entry.notification));
+        }
+    }
+
+    private void recreateStatusBar() {
+        mStatusBarContainer.removeAllViews();
+
+        // extract icons from the soon-to-be recreated viewgroup.
+        int nIcons = mStatusIcons.getChildCount();
+        ArrayList<StatusBarIcon> icons = new ArrayList<StatusBarIcon>(nIcons);
+        ArrayList<String> iconSlots = new ArrayList<String>(nIcons);
+        for (int i = 0; i < nIcons; i++) {
+            StatusBarIconView iconView = (StatusBarIconView)mStatusIcons.getChildAt(i);
+            icons.add(iconView.getStatusBarIcon());
+            iconSlots.add(iconView.getStatusBarSlot());
+        }
+
+        // extract notifications.
+        int nNotifs = mOngoing.size() + mLatest.size();
+        ArrayList<Pair<IBinder, StatusBarNotification>> notifications =
+                new ArrayList<Pair<IBinder, StatusBarNotification>>(nNotifs);
+        copyNotifications(notifications, mOngoing);
+        copyNotifications(notifications, mLatest);
+        mOngoing.clear();
+        mLatest.clear();
+
+        makeStatusBarView(this);
+
+        // recreate StatusBarIconViews.
+        for (int i = 0; i < nIcons; i++) {
+            StatusBarIcon icon = icons.get(i);
+            String slot = iconSlots.get(i);
+            addIcon(slot, i, i, icon);
+        }
+
+        // recreate notifications.
+        for (int i = 0; i < nNotifs; i++) {
+            Pair<IBinder, StatusBarNotification> notifData = notifications.get(i);
+            addNotificationViews(notifData.first, notifData.second);
+        }
+
+        setAreThereNotifications();
+        mStatusBarContainer.addView(mStatusBarView);
+        updateExpandedViewPos(EXPANDED_LEAVE_ALONE);
+    }
 
     /**
      * Reload some of our resources when the configuration changes.
@@ -1489,12 +1580,20 @@ public class StatusBarService extends Service implements CommandQueue.Callbacks 
     void updateResources() {
         Resources res = getResources();
 
-        mClearButton.setText(getText(R.string.status_bar_clear_all_button));
-        mOngoingTitle.setText(getText(R.string.status_bar_ongoing_events_title));
-        mLatestTitle.setText(getText(R.string.status_bar_latest_events_title));
-        mNoNotificationsTitle.setText(getText(R.string.status_bar_no_notifications_title));
+        // detect theme change.
+        CustomTheme newTheme = res.getConfiguration().customTheme;
+        if (newTheme != null &&
+                (mCurrentTheme == null || !mCurrentTheme.equals(newTheme))) {
+            mCurrentTheme = (CustomTheme)newTheme.clone();
+            recreateStatusBar();
+        } else {
+            mClearButton.setText(getText(R.string.status_bar_clear_all_button));
+            mOngoingTitle.setText(getText(R.string.status_bar_ongoing_events_title));
+            mLatestTitle.setText(getText(R.string.status_bar_latest_events_title));
+            mNoNotificationsTitle.setText(getText(R.string.status_bar_no_notifications_title));
 
-        mEdgeBorder = res.getDimensionPixelSize(R.dimen.status_bar_edge_ignore);
+            mEdgeBorder = res.getDimensionPixelSize(R.dimen.status_bar_edge_ignore);
+        }
 
         if (false) Slog.v(TAG, "updateResources");
     }
