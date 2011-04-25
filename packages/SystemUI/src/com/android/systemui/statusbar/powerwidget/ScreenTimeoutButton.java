@@ -3,6 +3,7 @@ package com.android.systemui.statusbar.powerwidget;
 import com.android.systemui.R;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.provider.Settings;
@@ -111,6 +112,15 @@ public class ScreenTimeoutButton extends PowerButton {
         return OBSERVED_URIS;
     }
 
+    @Override
+    protected boolean handleLongClick() {
+        Intent intent = new Intent("android.settings.DISPLAY_SETTINGS");
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        mView.getContext().startActivity(intent);
+        return true;
+    }
+    
     private static int getScreenTtimeout(Context context) {
         return Settings.System.getInt(
                 context.getContentResolver(),
