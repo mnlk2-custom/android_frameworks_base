@@ -180,7 +180,7 @@ class PackageManagerService extends IPackageManager.Stub {
     private static final int PKG_INSTALL_INCOMPLETE = 0;
     private static final int PKG_INSTALL_COMPLETE = 1;
 
-    private static final int THEME_MAMANER_GUID = 1300;
+    private static final int THEME_MAMANER_GUID = 1018;
 
     static final int SCAN_MONITOR = 1<<0;
     static final int SCAN_NO_DEX = 1<<1;
