@@ -117,6 +117,7 @@ public class NotificationManagerService extends INotificationManager.Stub
     private boolean mPendingPulseNotification;
 
     // for adb connected notifications
+    private boolean mUsbConnected = false;
     private boolean mAdbNotificationShown = false;
     private Notification mAdbNotification;
 
