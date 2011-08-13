@@ -57,6 +57,8 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageInfoLite;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageStats;
+import android.content.pm.ParceledListSlice;
+
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
 import static android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED;
@@ -77,6 +79,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
+import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.Environment;
 import android.os.FileObserver;
@@ -1005,15 +1008,15 @@ class PackageManagerService extends IPackageManager.Stub {
                     SystemClock.uptimeMillis());
             mAppInstallObserver = new AppDirObserver(
                 mAppInstallDir.getPath(), OBSERVER_EVENTS, false);
-            scanDirLI(mAppInstallDir, 0, scanMode, 0);
             mAppInstallObserver.startWatching();
-            
+            scanDirLI(mAppInstallDir, 0, scanMode, 0);
+
             mDrmAppInstallObserver = new AppDirObserver(
                 mDrmAppPrivateInstallDir.getPath(), OBSERVER_EVENTS, false);
+            mDrmAppInstallObserver.startWatching();
             scanDirLI(mDrmAppPrivateInstallDir, PackageParser.PARSE_FORWARD_LOCK,
                     scanMode, 0);
-            mDrmAppInstallObserver.startWatching();
-            
+
             EventLog.writeEvent(EventLogTags.BOOT_PROGRESS_PMS_SCAN_END,
                     SystemClock.uptimeMillis());
             Slog.i(TAG, "Time to scan packages: "
@@ -2337,34 +2340,64 @@ class PackageManagerService extends IPackageManager.Stub {
         }
     }
 
-    public List<PackageInfo> getInstalledPackages(int flags) {
-        ArrayList<PackageInfo> finalList = new ArrayList<PackageInfo>();
-
-        synchronized (mPackages) {
-            if((flags & PackageManager.GET_UNINSTALLED_PACKAGES) != 0) {
-                Iterator<PackageSetting> i = mSettings.mPackages.values().iterator();
-                while (i.hasNext()) {
-                    final PackageSetting ps = i.next();
-                    PackageInfo psPkg = generatePackageInfoFromSettingsLP(ps.name, flags);
-                    if(psPkg != null) {
-                        finalList.add(psPkg);
-                    }
-                }
-            }
-            else {
-                Iterator<PackageParser.Package> i = mPackages.values().iterator();
-                while (i.hasNext()) {
-                    final PackageParser.Package p = i.next();
-                    if (p.applicationInfo != null) {
-                        PackageInfo pi = generatePackageInfo(p, flags);
-                        if(pi != null) {
-                            finalList.add(pi);
-                        }
-                    }
-                }
+    private static final int getContinuationPoint(final String[] keys, final String key) {
+        final int index;
+        if (key == null) {
+            index = 0;
+        } else {
+            final int insertPoint = Arrays.binarySearch(keys, key);
+            if (insertPoint < 0) {
+                index = -insertPoint;
+            } else {
+                index = insertPoint + 1;
             }
         }
-        return finalList;
+        return index;
+    }
+
+    public ParceledListSlice<PackageInfo> getInstalledPackages(int flags, String lastRead) {
+        final ParceledListSlice<PackageInfo> list = new ParceledListSlice<PackageInfo>();
+        final boolean listUninstalled = (flags & PackageManager.GET_UNINSTALLED_PACKAGES) != 0;
+        final String[] keys;
+
+        synchronized (mPackages) {
+            if (listUninstalled) {
+                keys = mSettings.mPackages.keySet().toArray(new String[mSettings.mPackages.size()]);
+            } else {
+                keys = mPackages.keySet().toArray(new String[mPackages.size()]);
+            }
+
+            Arrays.sort(keys);
+            int i = getContinuationPoint(keys, lastRead);
+            final int N = keys.length;
+
+            while (i < N) {
+                final String packageName = keys[i++];
+
+                PackageInfo pi = null;
+                if (listUninstalled) {
+                    final PackageSetting ps = mSettings.mPackages.get(packageName);
+                    if (ps != null) {
+                        pi = generatePackageInfoFromSettingsLP(ps.name, flags);
+                    }
+                } else {
+                    final PackageParser.Package p = mPackages.get(packageName);
+                    if (p != null) {
+                        pi = generatePackageInfo(p, flags);
+                    }
+                }
+
+                if (pi != null && !list.append(pi)) {
+                    break;
+                }
+            }
+
+            if (i == N) {
+                list.setLastSlice(true);
+            }
+        }
+
+        return list;
     }
 
     public List<PackageInfo> getInstalledThemePackages() {
@@ -2381,16 +2414,18 @@ class PackageManagerService extends IPackageManager.Stub {
         return finalList;
     }
 
-    public List<ApplicationInfo> getInstalledApplications(int flags) {
-        ArrayList<ApplicationInfo> finalList = new ArrayList<ApplicationInfo>();
-        synchronized(mPackages) {
-            if((flags & PackageManager.GET_UNINSTALLED_PACKAGES) != 0) {
-                Iterator<PackageSetting> i = mSettings.mPackages.values().iterator();
-                while (i.hasNext()) {
-                    final PackageSetting ps = i.next();
-                    ApplicationInfo ai = generateApplicationInfoFromSettingsLP(ps.name, flags);
-                    if(ai != null) {
-                        finalList.add(ai);
+            Arrays.sort(keys);
+            int i = getContinuationPoint(keys, lastRead);
+            final int N = keys.length;
+
+            while (i < N) {
+                final String packageName = keys[i++];
+
+                ApplicationInfo ai = null;
+                if (listUninstalled) {
+                    final PackageSetting ps = mSettings.mPackages.get(packageName);
+                    if (ps != null) {
+                        ai = generateApplicationInfoFromSettingsLP(ps.name, flags);
                     }
                 }
             }
@@ -2404,10 +2439,24 @@ class PackageManagerService extends IPackageManager.Stub {
                             finalList.add(ai);
                         }
                     }
+                } else {
+                    final PackageParser.Package p = mPackages.get(packageName);
+                    if (p != null) {
+                        ai = PackageParser.generateApplicationInfo(p, flags);
+                    }
+                }
+
+                if (ai != null && !list.append(ai)) {
+                    break;
                 }
             }
+
+            if (i == N) {
+                list.setLastSlice(true);
+            }
         }
-        return finalList;
+
+        return list;
     }
 
     public List<ApplicationInfo> getPersistentApplications(int flags) {
@@ -6383,15 +6432,13 @@ class PackageManagerService extends IPackageManager.Stub {
         outInfo.isRemovedPackageSystemUpdate = true;
         final boolean deleteCodeAndResources;
         if (ps.versionCode < p.mVersionCode) {
-            // Delete code and resources for downgrades
-            deleteCodeAndResources = true;
+            // Delete data for downgrades
             flags &= ~PackageManager.DONT_DELETE_DATA;
         } else {
             // Preserve data by setting flag
-            deleteCodeAndResources = false;
             flags |= PackageManager.DONT_DELETE_DATA;
         }
-        boolean ret = deleteInstalledPackageLI(p, deleteCodeAndResources, flags, outInfo,
+        boolean ret = deleteInstalledPackageLI(p, true, flags, outInfo,
                 writeSettings);
         if (!ret) {
             return false;
@@ -9200,6 +9247,19 @@ class PackageManagerService extends IPackageManager.Stub {
             }
             mPendingPackages.clear();
 
+            /*
+             * Make sure all the updated system packages have their shared users
+             * associated with them.
+             */
+            final Iterator<PackageSetting> disabledIt = mDisabledSysPackages.values().iterator();
+            while (disabledIt.hasNext()) {
+                final PackageSetting disabledPs = disabledIt.next();
+                final Object id = getUserIdLP(disabledPs.userId);
+                if (id != null && id instanceof SharedUserSetting) {
+                  disabledPs.sharedUser = (SharedUserSetting) id;
+                }
+            }
+
             mReadMessages.append("Read completed successfully: "
                     + mPackages.size() + " packages, "
                     + mSharedUsers.size() + " shared uids\n");
@@ -9669,7 +9729,7 @@ class PackageManagerService extends IPackageManager.Stub {
                         "Error in package manager settings: package "
                         + name + " has bad userId " + idStr + " at "
                         + parser.getPositionDescription());
-            }
+            };
 
             if (su != null) {
                 int outerDepth = parser.getDepth();
