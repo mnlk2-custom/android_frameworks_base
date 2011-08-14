@@ -183,7 +183,7 @@ class PackageManagerService extends IPackageManager.Stub {
     private static final int PKG_INSTALL_INCOMPLETE = 0;
     private static final int PKG_INSTALL_COMPLETE = 1;
 
-    private static final int THEME_MAMANER_GUID = 1018;
+    private static final int THEME_MAMANER_GUID = 1300;
 
     static final int SCAN_MONITOR = 1<<0;
     static final int SCAN_NO_DEX = 1<<1;
@@ -2403,7 +2403,16 @@ class PackageManagerService extends IPackageManager.Stub {
     public List<PackageInfo> getInstalledThemePackages() {
         // Returns a list of theme APKs.
         ArrayList<PackageInfo> finalList = new ArrayList<PackageInfo>();
-        List<PackageInfo> installedPackagesList = getInstalledPackages(0);
+        List<PackageInfo> installedPackagesList = new ArrayList<PackageInfo>();
+        PackageInfo lastItem = null;
+        ParceledListSlice<PackageInfo> slice;
+
+        do {
+            final String lastKey = lastItem != null ? lastItem.packageName : null;
+            slice = getInstalledPackages(0, lastKey);
+            lastItem = slice.populateList(installedPackagesList, PackageInfo.CREATOR);
+        } while (!slice.isLastSlice());
+
         Iterator<PackageInfo> i = installedPackagesList.iterator();
         while (i.hasNext()) {
             final PackageInfo pi = i.next();
@@ -2413,6 +2422,19 @@ class PackageManagerService extends IPackageManager.Stub {
         }
         return finalList;
     }
+
+    public ParceledListSlice<ApplicationInfo> getInstalledApplications(int flags,
+            String lastRead) {
+        final ParceledListSlice<ApplicationInfo> list = new ParceledListSlice<ApplicationInfo>();
+        final boolean listUninstalled = (flags & PackageManager.GET_UNINSTALLED_PACKAGES) != 0;
+        final String[] keys;
+
+        synchronized (mPackages) {
+            if (listUninstalled) {
+                keys = mSettings.mPackages.keySet().toArray(new String[mSettings.mPackages.size()]);
+            } else {
+                keys = mPackages.keySet().toArray(new String[mPackages.size()]);
+            }
 
             Arrays.sort(keys);
             int i = getContinuationPoint(keys, lastRead);
@@ -2426,18 +2448,6 @@ class PackageManagerService extends IPackageManager.Stub {
                     final PackageSetting ps = mSettings.mPackages.get(packageName);
                     if (ps != null) {
                         ai = generateApplicationInfoFromSettingsLP(ps.name, flags);
-                    }
-                }
-            }
-            else {
-                Iterator<PackageParser.Package> i = mPackages.values().iterator();
-                while (i.hasNext()) {
-                    final PackageParser.Package p = i.next();
-                    if (p.applicationInfo != null) {
-                        ApplicationInfo ai = PackageParser.generateApplicationInfo(p, flags);
-                        if(ai != null) {
-                            finalList.add(ai);
-                        }
                     }
                 } else {
                     final PackageParser.Package p = mPackages.get(packageName);
@@ -5780,7 +5790,7 @@ class PackageManagerService extends IPackageManager.Stub {
                 res.removedInfo.args = null;
             }
         }
-
+        
         // Successfully disabled the old package. Now proceed with re-installation
         mLastScanError = PackageManager.INSTALL_SUCCEEDED;
         pkg.applicationInfo.flags |= ApplicationInfo.FLAG_UPDATED_SYSTEM_APP;
@@ -6423,14 +6433,13 @@ class PackageManagerService extends IPackageManager.Stub {
             ps = mSettings.getDisabledSystemPkg(p.packageName);
         }
         if (ps == null) {
-            Slog.w(TAG, "Attempt to delete system package "+ p.packageName);
+            Slog.w(TAG, "Attempt to delete unknown system package "+ p.packageName);
             return false;
         } else {
             Log.i(TAG, "Deleting system pkg from data partition");
         }
         // Delete the updated package
         outInfo.isRemovedPackageSystemUpdate = true;
-        final boolean deleteCodeAndResources;
         if (ps.versionCode < p.mVersionCode) {
             // Delete data for downgrades
             flags &= ~PackageManager.DONT_DELETE_DATA;
@@ -9729,7 +9738,7 @@ class PackageManagerService extends IPackageManager.Stub {
                         "Error in package manager settings: package "
                         + name + " has bad userId " + idStr + " at "
                         + parser.getPositionDescription());
-            };
+            }
 
             if (su != null) {
                 int outerDepth = parser.getDepth();
